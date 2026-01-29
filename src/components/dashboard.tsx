@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase"
+import { RosterTable } from "./roster-table"
 import {
     Table,
     TableBody,
@@ -17,27 +18,16 @@ type Upgrade = {
     dps_increase: number
 }
 
-type RosterMember = {
-    id: string
-    name: string
-    realm: string
-    class: string
-    spec: string | null
-    last_dps: number | null
-    last_seen_in_game: string | null
-    last_sim_time: string | null
-}
-
 // Data Fetching Component (Server Component)
 export async function Dashboard() {
 
-    // Fetch roster members
+    // Fetch roster members with all details needed
     const { data: roster } = await supabase
         .from('roster')
         .select('*')
         .order('name')
 
-    // Fetch top upgrades (global view for now)
+    // Fetch top upgrades
     const { data: upgrades } = await supabase
         .from('loot_upgrades')
         .select('*')
@@ -102,50 +92,7 @@ export async function Dashboard() {
             {/* Raid Roster Section */}
             <section className="space-y-6">
                 <h2 className="text-2xl font-bold text-indigo-400">Raid Roster</h2>
-                <div className="bg-slate-900/50 rounded-xl border border-slate-800 overflow-hidden">
-                    <Table>
-                        <TableHeader className="bg-slate-950">
-                            <TableRow className="border-slate-800">
-                                <TableHead className="text-slate-400">#</TableHead>
-                                <TableHead className="text-slate-400">Name</TableHead>
-                                <TableHead className="text-slate-400">Realm</TableHead>
-                                <TableHead className="text-slate-400">Class</TableHead>
-                                <TableHead className="text-slate-400">Spec</TableHead>
-                                <TableHead className="text-right text-slate-400">Avg DPS</TableHead>
-                                <TableHead className="text-slate-400">Last Seen (Game)</TableHead>
-                                <TableHead className="text-slate-400">Last Sim</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {roster && roster.length > 0 ? (
-                                (roster as RosterMember[]).map((r, idx) => (
-                                    <TableRow key={r.id} className="border-slate-800 hover:bg-slate-800/50">
-                                        <TableCell className="text-slate-500 font-mono text-xs">{idx + 1}</TableCell>
-                                        <TableCell className="font-bold text-slate-200">{r.name}</TableCell>
-                                        <TableCell className="text-slate-400 text-sm">{r.realm}</TableCell>
-                                        <TableCell className="text-slate-400 text-sm">{r.class}</TableCell>
-                                        <TableCell className="text-slate-400 text-sm">{r.spec || '-'}</TableCell>
-                                        <TableCell className="text-right font-mono text-emerald-400">
-                                            {r.last_dps ? r.last_dps.toLocaleString() : '-'}
-                                        </TableCell>
-                                        <TableCell className="text-slate-400 text-xs">
-                                            {r.last_seen_in_game ? new Date(r.last_seen_in_game).toLocaleDateString() : '-'}
-                                        </TableCell>
-                                        <TableCell className="text-slate-400 text-xs">
-                                            {r.last_sim_time ? new Date(r.last_sim_time).toLocaleDateString() : '-'}
-                                        </TableCell>
-                                    </TableRow>
-                                ))
-                            ) : (
-                                <TableRow>
-                                    <TableCell colSpan={8} className="text-center py-8 text-slate-500 italic">
-                                        No roster members added yet.
-                                    </TableCell>
-                                </TableRow>
-                            )}
-                        </TableBody>
-                    </Table>
-                </div>
+                <RosterTable roster={roster || []} />
             </section>
         </div>
     )

@@ -19,7 +19,7 @@ export default function Home() {
         {/* Header */}
         <div className="text-center space-y-4">
           <h1 className="text-4xl font-extrabold tracking-tight lg:text-5xl text-indigo-400">
-            Raid Loot Analyzer
+            Unbearable Loot Manager
           </h1>
           <p className="text-lg text-slate-400">
             Aggregate Droptimizer sims to determine the best upgrades for your raid team.
