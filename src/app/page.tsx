@@ -3,6 +3,9 @@ import { Dashboard } from '@/components/dashboard'
 import { AuthButton } from '@/components/auth-button'
 
 
+
+export const dynamic = 'force-dynamic'
+
 export default function Home() {
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100 p-8">
