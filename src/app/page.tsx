@@ -26,8 +26,8 @@ export default function Home() {
           </p>
         </div>
 
-        {/* Action Section */}
-        <ReportInput />
+        {/* Action Section removed - managed from Admin Panel */}
+
 
         {/* Dashboard */}
         <Dashboard />

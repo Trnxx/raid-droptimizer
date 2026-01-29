@@ -17,15 +17,25 @@ type Upgrade = {
     dps_increase: number
 }
 
+type RosterMember = {
+    id: string
+    name: string
+    realm: string
+    class: string
+    spec: string | null
+    last_dps: number | null
+    last_seen_in_game: string | null
+    last_sim_time: string | null
+}
+
 // Data Fetching Component (Server Component)
 export async function Dashboard() {
 
-    // Fetch latest 50 reports for roster view
-    const { data: reports } = await supabase
-        .from('reports')
-        .select('id, title, raidbots_id, created_at')
-        .order('created_at', { ascending: false })
-        .limit(10)
+    // Fetch roster members
+    const { data: roster } = await supabase
+        .from('roster')
+        .select('*')
+        .order('name')
 
     // Fetch top upgrades (global view for now)
     const { data: upgrades } = await supabase
@@ -43,23 +53,7 @@ export async function Dashboard() {
     }, {} as Record<string, Upgrade[]>)
 
     return (
-        <div className="space-y-8">
-            {/* Recent Reports Section */}
-            <section className="bg-slate-900/40 p-6 rounded-xl border border-slate-800">
-                <h2 className="text-xl font-semibold text-slate-200 mb-4">Recent Reports</h2>
-                {reports && reports.length > 0 ? (
-                    <div className="flex flex-wrap gap-2">
-                        {reports.map(r => (
-                            <div key={r.id} className="text-sm bg-slate-800 px-3 py-1 rounded-full text-slate-300">
-                                {r.title}
-                            </div>
-                        ))}
-                    </div>
-                ) : (
-                    <p className="text-slate-500 italic">No reports uploaded yet.</p>
-                )}
-            </section>
-
+        <div className="space-y-12">
             {/* Upgrades by Boss Section */}
             <section className="space-y-6">
                 <h2 className="text-2xl font-bold text-indigo-400">Top Upgrades by Boss</h2>
@@ -103,6 +97,55 @@ export async function Dashboard() {
                         </Table>
                     </div>
                 ))}
+            </section>
+
+            {/* Raid Roster Section */}
+            <section className="space-y-6">
+                <h2 className="text-2xl font-bold text-indigo-400">Raid Roster</h2>
+                <div className="bg-slate-900/50 rounded-xl border border-slate-800 overflow-hidden">
+                    <Table>
+                        <TableHeader className="bg-slate-950">
+                            <TableRow className="border-slate-800">
+                                <TableHead className="text-slate-400">#</TableHead>
+                                <TableHead className="text-slate-400">Name</TableHead>
+                                <TableHead className="text-slate-400">Realm</TableHead>
+                                <TableHead className="text-slate-400">Class</TableHead>
+                                <TableHead className="text-slate-400">Spec</TableHead>
+                                <TableHead className="text-right text-slate-400">Avg DPS</TableHead>
+                                <TableHead className="text-slate-400">Last Seen (Game)</TableHead>
+                                <TableHead className="text-slate-400">Last Sim</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {roster && roster.length > 0 ? (
+                                (roster as RosterMember[]).map((r, idx) => (
+                                    <TableRow key={r.id} className="border-slate-800 hover:bg-slate-800/50">
+                                        <TableCell className="text-slate-500 font-mono text-xs">{idx + 1}</TableCell>
+                                        <TableCell className="font-bold text-slate-200">{r.name}</TableCell>
+                                        <TableCell className="text-slate-400 text-sm">{r.realm}</TableCell>
+                                        <TableCell className="text-slate-400 text-sm">{r.class}</TableCell>
+                                        <TableCell className="text-slate-400 text-sm">{r.spec || '-'}</TableCell>
+                                        <TableCell className="text-right font-mono text-emerald-400">
+                                            {r.last_dps ? r.last_dps.toLocaleString() : '-'}
+                                        </TableCell>
+                                        <TableCell className="text-slate-400 text-xs">
+                                            {r.last_seen_in_game ? new Date(r.last_seen_in_game).toLocaleDateString() : '-'}
+                                        </TableCell>
+                                        <TableCell className="text-slate-400 text-xs">
+                                            {r.last_sim_time ? new Date(r.last_sim_time).toLocaleDateString() : '-'}
+                                        </TableCell>
+                                    </TableRow>
+                                ))
+                            ) : (
+                                <TableRow>
+                                    <TableCell colSpan={8} className="text-center py-8 text-slate-500 italic">
+                                        No roster members added yet.
+                                    </TableCell>
+                                </TableRow>
+                            )}
+                        </TableBody>
+                    </Table>
+                </div>
             </section>
         </div>
     )
