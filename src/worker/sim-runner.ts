@@ -104,7 +104,7 @@ async function runWorker() {
                     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
 
                     // Try multiple selectors
-                    let runBtn = await page.$('button[class*="RunButton"]')
+                    let runBtn: any = await page.$('button[class*="RunButton"]')
 
                     if (!runBtn) {
                         try {
