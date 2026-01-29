@@ -14,9 +14,13 @@ export async function processRaidbotsReport(url: string): Promise<ProcessResult>
     const { data: { user } } = await supabase.auth.getUser()
     // MOCK MODE
     if (url.includes("mock/report")) {
+        // Extract a "name" from the mock URL if possible (e.g. mock/report/PlayerName)
+        const mockNameMatch = url.match(/report\/([a-zA-Z0-9_-]+)/)
+        const playerName = mockNameMatch ? mockNameMatch[1] : "TestPlayer"
+
         const mockJson = {
             simbot: {
-                title: "Mock Droptimizer Report",
+                title: "Mock Report: " + playerName,
                 type: "droptimizer",
                 droptimizer: {
                     plans: [
@@ -27,7 +31,7 @@ export async function processRaidbotsReport(url: string): Promise<ProcessResult>
                 }
             },
             sim: {
-                players: [{ name: "TestPlayer", collected_data: { dps: { mean: 50000 } } }],
+                players: [{ name: playerName, collected_data: { dps: { mean: 50000 } } }],
                 profilesets: {
                     results: [
                         { name: "item_1", mean: 55000 }, // +10%

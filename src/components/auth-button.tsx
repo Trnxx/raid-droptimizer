@@ -45,10 +45,25 @@ export function AuthButton() {
         return <Button variant="ghost" disabled><Loader2 className="w-4 h-4 animate-spin" /></Button>
     }
 
+    const isAdmin = user && (
+        user.user_metadata.full_name === "dan.s." ||
+        user.user_metadata.name === "dan.s." ||
+        user.user_metadata.preferred_username === "dan.s." ||
+        user.user_metadata.user_name === "dan.s."
+    )
+
     return user ? (
         <div className="flex items-center gap-4">
+            {isAdmin && (
+                <a href="/admin" className="text-sm font-medium text-emerald-400 hover:text-emerald-300">
+                    Admin Panel
+                </a>
+            )}
             <div className="text-sm text-slate-400">
                 Logged in as <span className="text-indigo-400">{user.user_metadata.full_name || user.email}</span>
+                <div className="text-[10px] text-slate-600">
+                    Debug: {user.user_metadata.full_name} / {user.user_metadata.name} / {user.user_metadata.preferred_username} / {user.user_metadata.user_name}
+                </div>
             </div>
             <Button onClick={handleLogout} variant="outline" className="border-slate-700 hover:bg-slate-800">
                 Sign Out
