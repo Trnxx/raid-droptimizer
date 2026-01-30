@@ -350,7 +350,7 @@ export async function updateRosterThumbnail(rosterId: string, source: string | F
     return { success: true, url: thumbnailUrl }
 }
 
-export async function assignLoot(rosterId: string, bossName: string, itemName: string, itemId: number, raidWeek: string) {
+export async function assignLoot(rosterId: string, bossName: string, itemName: string, itemId: number, raidWeek: string, difficulty: string) {
     const isAdmin = await checkAdmin()
     if (!isAdmin) return { success: false, message: "Unauthorized" }
 
@@ -361,7 +361,8 @@ export async function assignLoot(rosterId: string, bossName: string, itemName: s
         raid_week: raidWeek,
         boss_name: bossName,
         item_name: itemName,
-        item_id: itemId
+        item_id: itemId,
+        difficulty: difficulty
     })
 
     if (error) return { success: false, message: error.message }

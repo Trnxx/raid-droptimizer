@@ -5,6 +5,8 @@ export interface BossLoot {
     items: { id: number; name: string; slot: string }[];
 }
 
+export type RaidDifficulty = "Normal" | "Heroic" | "Mythic"
+
 export const RAID_DATA: BossLoot[] = [
     {
         bossName: "Vexie and the Vextravaganza",

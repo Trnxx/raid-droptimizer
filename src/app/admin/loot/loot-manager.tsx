@@ -5,6 +5,7 @@ import { RAID_DATA, getCurrentRaidWeek, getRecentWeeks } from "@/lib/raid-data"
 import { assignLoot, unassignLoot } from "../actions"
 import { Button } from "@/components/ui/button"
 import { Skull, Package, User, Plus, Trash2, ArrowRight, X } from "lucide-react"
+import { DifficultySelector, Difficulty } from "@/components/difficulty-selector"
 
 type Member = {
     id: string
@@ -17,7 +18,9 @@ type Assignment = {
     roster_id: string
     boss_name: string
     item_name: string
+    item_name: string
     raid_week: string
+    difficulty: string
     roster: { name: string }
 }
 
@@ -25,13 +28,14 @@ export function LootManager({ roster, existingHistory }: { roster: Member[], exi
     const weeks = getRecentWeeks(6)
     const [currentWeek, setCurrentWeek] = useState(weeks[0])
     const [selectedBoss, setSelectedBoss] = useState(RAID_DATA[0].bossName)
+    const [difficulty, setDifficulty] = useState<Difficulty>("Heroic")
     const [assigningItemId, setAssigningItemId] = useState<number | null>(null)
 
-    const historyForWeek = existingHistory.filter(h => h.raid_week === currentWeek)
+    const historyForWeek = existingHistory.filter(h => h.raid_week === currentWeek && h.difficulty === difficulty)
     const currentBossData = RAID_DATA.find(b => b.bossName === selectedBoss)
 
     const handleAssign = async (memberId: string, itemName: string, itemId: number) => {
-        const res = await assignLoot(memberId, selectedBoss, itemName, itemId, currentWeek)
+        const res = await assignLoot(memberId, selectedBoss, itemName, itemId, currentWeek, difficulty)
         if (!res.success) alert(res.message)
         else {
             setAssigningItemId(null)
@@ -89,9 +93,7 @@ export function LootManager({ roster, existingHistory }: { roster: Member[], exi
                                 <Package className="w-5 h-5 text-indigo-400" />
                                 {selectedBoss} Loot Table
                             </h2>
-                            <div className="text-[10px] text-slate-500 uppercase font-bold tracking-widest bg-slate-900/50 px-3 py-1 rounded-full border border-slate-800">
-                                Pick an item, then pick a raider
-                            </div>
+                            <DifficultySelector current={difficulty} onSelect={setDifficulty} />
                         </div>
                         <div className="p-4 space-y-3">
                             {currentBossData?.items.map(item => (

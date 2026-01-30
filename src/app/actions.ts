@@ -145,7 +145,19 @@ async function parseAndSaveLoot(json: any, reportId: string) {
         resultsMap.set(r.name, r.mean)
     }
 
-    // 3. Iterate Plans
+    // 3. Extract Difficulty
+    // json.sim.options.difficulty might be "heroic", "mythic", etc.
+    const rawDiff = json.sim?.options?.difficulty || "normal"
+    // Normalize to our expected types if possible, or keep as string
+    let difficulty = "Unknown"
+    const lowerDiff = String(rawDiff).toLowerCase()
+
+    if (lowerDiff.includes("mythic")) difficulty = "Mythic"
+    else if (lowerDiff.includes("heroic")) difficulty = "Heroic"
+    else if (lowerDiff.includes("normal")) difficulty = "Normal"
+    else if (lowerDiff.includes("lfr") || lowerDiff.includes("raid finder")) difficulty = "LFR"
+
+    // 4. Iterate Plans
     // json.simbot.droptimizer.plans -> Array of { name: string, items: Array<{id: number, name: string, drop: string}> }
     const plans = json.simbot?.droptimizer?.plans || []
 
@@ -156,6 +168,7 @@ async function parseAndSaveLoot(json: any, reportId: string) {
         item_name: string;
         item_id: number;
         boss_name: string;
+        difficulty: string;
         dps_increase: number;
         percent_increase: number;
     }[] = []
@@ -188,6 +201,7 @@ async function parseAndSaveLoot(json: any, reportId: string) {
             item_name: item.name,
             item_id: item.id,
             boss_name: bossName,
+            difficulty: difficulty,
             dps_increase: dpsIncrease,
             percent_increase: percentIncrease
         })

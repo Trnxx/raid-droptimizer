@@ -78,8 +78,14 @@ export default async function LootPage(props: { searchParams: Promise<{ week?: s
                                                     )}
                                                 </div>
                                                 <div className="min-w-0">
-                                                    <div className="text-xs text-slate-500 flex items-center gap-1 uppercase tracking-tighter">
-                                                        <Package className="w-3 h-3" /> {item.item_name}
+                                                    <div className="text-xs text-slate-500 flex items-center gap-2 uppercase tracking-tighter">
+                                                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${(item.difficulty || 'Heroic') === 'Mythic' ? 'bg-purple-900/50 text-purple-300 border border-purple-800' :
+                                                                (item.difficulty || 'Heroic') === 'Heroic' ? 'bg-green-900/50 text-green-300 border border-green-800' :
+                                                                    'bg-blue-900/50 text-blue-300 border border-blue-800'
+                                                            }`}>
+                                                            {item.difficulty || 'Heroic'}
+                                                        </span>
+                                                        <span className="flex items-center gap-1"><Package className="w-3 h-3" /> {item.item_name}</span>
                                                     </div>
                                                     <div className="font-bold text-indigo-400 truncate">
                                                         {item.roster?.name || "Unknown"}

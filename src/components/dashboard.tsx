@@ -20,7 +20,7 @@ type Upgrade = {
 }
 
 // Data Fetching Component (Server Component)
-export async function Dashboard() {
+export async function Dashboard({ difficulty = 'Heroic' }: { difficulty?: string }) {
 
     // Fetch roster members with all details needed
     const { data: roster } = await supabase
@@ -29,11 +29,17 @@ export async function Dashboard() {
         .order('name')
 
     // Fetch top upgrades (increased limit for raid-wide aggregation)
-    const { data: upgrades } = await supabase
+    let query = supabase
         .from('loot_upgrades')
         .select('*')
         .order('percent_increase', { ascending: false })
-        .limit(200)
+        .limit(300)
+
+    if (difficulty && difficulty !== 'All') {
+        query = query.eq('difficulty', difficulty)
+    }
+
+    const { data: upgrades } = await query
 
     // Group by Boss and calculate total value
     const bossValue: Record<string, { totalDps: number, upgradeCount: number }> = {}
