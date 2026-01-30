@@ -59,6 +59,7 @@ export async function addRosterMember(formData: FormData) {
     let spec = "Unknown"
     let role = "DPS" // Default
     let lastSeen: string | null = null
+    let itemLevel = 0
 
     console.log(`Fetching Armory for ${name}-${realm}...`)
     const armory = await getCharacterProfile(name, realm, region)
@@ -67,6 +68,7 @@ export async function addRosterMember(formData: FormData) {
         console.log("Armory Data Found:", armory.data.character_class)
         charClass = armory.data.character_class?.name || "Unknown"
         spec = armory.data.active_spec?.name || "Unknown"
+        itemLevel = armory.data.equipped_item_level || 0
         if (armory.data.last_login_timestamp) {
             lastSeen = new Date(armory.data.last_login_timestamp).toISOString()
         }
@@ -82,6 +84,7 @@ export async function addRosterMember(formData: FormData) {
         class: charClass,
         spec: spec,
         role: role,
+        equipped_item_level: itemLevel,
         last_armory_sync: armory.success ? new Date().toISOString() : null,
         last_seen_in_game: lastSeen
     })
@@ -164,6 +167,7 @@ export async function markJobComplete(queueId: string, url: string) {
 
     // Fetch DPS from Raidbots
     let dps = null
+    let simIlvl = null
     let debugMsg = ""
 
     // Extract ID
@@ -188,12 +192,14 @@ export async function markJobComplete(queueId: string, url: string) {
                     const data = await res.json()
                     const player = data.sim?.players?.[0]
                     const meanDps = player?.collected_data?.dps?.mean
+                    const playerIlvl = player?.equipped_item_level
 
-                    console.log(`DPS Fetch Success (Attempt ${i + 1}):`, { meanDps })
+                    console.log(`DPS Fetch Success (Attempt ${i + 1}):`, { meanDps, playerIlvl })
                     debugMsg = `DPS Found: ${meanDps}`
 
                     if (meanDps) {
                         dps = Math.round(meanDps)
+                        simIlvl = playerIlvl
                         break; // Success!
                     }
                 } else {
@@ -225,6 +231,9 @@ export async function markJobComplete(queueId: string, url: string) {
         }
         if (dps) {
             updateData.last_dps = dps
+        }
+        if (simIlvl) {
+            updateData.last_sim_item_level = simIlvl
         }
 
         const { error: rosterError } = await supabase.from('roster').update(updateData).eq('id', job.roster_id)
@@ -275,19 +284,135 @@ export async function refreshRosterMember(id: string) {
     const spec = armory.data.active_spec?.name || "Unknown"
 
     let lastSeen = member.last_seen_in_game
+    let itemLevel = member.equipped_item_level
     if (armory.data.last_login_timestamp) {
         lastSeen = new Date(armory.data.last_login_timestamp).toISOString()
+    }
+    if (armory.data.equipped_item_level) {
+        itemLevel = armory.data.equipped_item_level
     }
 
     const { error } = await supabase.from('roster').update({
         class: charClass,
         spec: spec,
         last_armory_sync: new Date().toISOString(),
-        last_seen_in_game: lastSeen
+        last_seen_in_game: lastSeen,
+        equipped_item_level: itemLevel
     }).eq('id', id)
 
     if (error) return { success: false, message: error.message }
 
     revalidatePath('/admin')
     return { success: true, message: `Updated ${member.name}: ${charClass} (${spec})` }
+}
+
+export async function updateRosterThumbnail(rosterId: string, source: string | File) {
+    const isAdmin = await checkAdmin()
+    if (!isAdmin) return { success: false, message: "Unauthorized" }
+
+    const supabase = getAdminDB()
+    let thumbnailUrl = ""
+
+    if (typeof source === 'string') {
+        // Source is a URL or Emoji Link
+        thumbnailUrl = source
+    } else {
+        // Source is a File, upload to Supabase Storage
+        // Note: Expects bucket "roster-thumbnails" to exist with public access
+        const fileExt = source.name.split('.').pop()
+        const fileName = `${rosterId}-${Math.random().toString(36).substring(7)}.${fileExt}`
+        const filePath = `thumbnails/${fileName}`
+
+        const { error: uploadError } = await supabase.storage
+            .from('roster-thumbnails')
+            .upload(filePath, source, {
+                cacheControl: '3600',
+                upsert: true
+            })
+
+        if (uploadError) return { success: false, message: "Upload failed: " + uploadError.message }
+
+        const { data: { publicUrl } } = supabase.storage
+            .from('roster-thumbnails')
+            .getPublicUrl(filePath)
+
+        thumbnailUrl = publicUrl
+    }
+
+    const { error } = await supabase.from('roster')
+        .update({ thumbnail_url: thumbnailUrl })
+        .eq('id', rosterId)
+
+    if (error) return { success: false, message: error.message }
+
+    revalidatePath('/')
+    revalidatePath('/admin')
+    return { success: true, url: thumbnailUrl }
+}
+
+export async function assignLoot(rosterId: string, bossName: string, itemName: string, itemId: number, raidWeek: string) {
+    const isAdmin = await checkAdmin()
+    if (!isAdmin) return { success: false, message: "Unauthorized" }
+
+    const supabase = getAdminDB()
+
+    const { error } = await supabase.from('loot_history').insert({
+        roster_id: rosterId,
+        raid_week: raidWeek,
+        boss_name: bossName,
+        item_name: itemName,
+        item_id: itemId
+    })
+
+    if (error) return { success: false, message: error.message }
+
+    // Proactively refresh armory for this raider
+    // Note: User mentioned they might not equip immediately, but we try anyway
+    await refreshRosterMember(rosterId)
+
+    revalidatePath('/loot')
+    revalidatePath('/admin/loot')
+    return { success: true }
+}
+
+export async function unassignLoot(lootId: string) {
+    const isAdmin = await checkAdmin()
+    if (!isAdmin) return { success: false, message: "Unauthorized" }
+
+    const supabase = getAdminDB()
+
+    const { error } = await supabase.from('loot_history').delete().eq('id', lootId)
+
+    if (error) return { success: false, message: error.message }
+
+    revalidatePath('/loot')
+    revalidatePath('/admin/loot')
+    return { success: true }
+}
+
+export async function getLootHistory(raidWeek?: string) {
+    // Public action - use server client
+    const supabaseClient = await createClient()
+    const { data, error } = await supabaseClient
+        .from('loot_history')
+        .select(`
+            *,
+            roster:roster_id (
+                name,
+                class,
+                thumbnail_url
+            )
+        `)
+        .order('created_at', { ascending: false })
+
+    if (error) {
+        console.error("Error fetching loot history:", error)
+        return []
+    }
+
+    if (raidWeek) {
+        return (data as any[]).filter(l => l.raid_week === raidWeek)
+    }
+
+    return data
 }

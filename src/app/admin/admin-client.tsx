@@ -1,10 +1,11 @@
 'use client'
 
 import { useState, useEffect } from "react"
-import { addRosterMember, addToQueue, markJobComplete, markJobFailed, removeRosterMember, refreshRosterMember, deleteJob, clearQueue } from "./actions"
+import { addRosterMember, addToQueue, markJobComplete, markJobFailed, removeRosterMember, refreshRosterMember, deleteJob, clearQueue, updateRosterThumbnail } from "./actions"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Loader2, Play, Plus, Trash, Check, X, RefreshCw, ChevronDown, ChevronRight, ExternalLink, ArrowUpDown } from "lucide-react"
+import { Loader2, Play, Plus, Trash, Check, X, RefreshCw, ChevronDown, ChevronRight, ExternalLink, ArrowUpDown, Camera, History } from "lucide-react"
+import Link from "next/link"
 
 // Types
 type RosterMember = {
@@ -18,6 +19,9 @@ type RosterMember = {
     last_sim_time: string | null
     last_sim_link: string | null
     last_dps: number | null
+    equipped_item_level: number | null
+    last_sim_item_level: number | null
+    thumbnail_url: string | null
 }
 
 type QueueItem = {
@@ -70,6 +74,55 @@ export function AdminDashboard({
         window.addEventListener("message", handler)
         return () => window.removeEventListener("message", handler)
     }, [])
+
+    // AUTO-QUEUE LOGIC for "Red" members
+    useEffect(() => {
+        const redMembers = roster.filter(m => {
+            const status = getHealthStatus(m)
+            if (status !== 'red') return false
+
+            // Check if already in queue
+            const inQueue = queue.some(q => q.roster.id === m.id && (q.status === 'pending' || q.status === 'running'))
+            return !inQueue
+        })
+
+        if (redMembers.length > 0) {
+            console.log(`Auto-queuing ${redMembers.length} stale/out-of-sync members...`)
+            redMembers.forEach(m => {
+                addToQueue(m.id).then(res => {
+                    if (res.success) console.log(`Auto-queued ${m.name}`)
+                })
+            })
+        }
+    }, [roster, queue])
+
+    const getHealthStatus = (member: RosterMember) => {
+        if (!member.last_sim_time) return 'red'
+
+        const lastSim = new Date(member.last_sim_time)
+        const now = new Date()
+        const diffDays = (now.getTime() - lastSim.getTime()) / (1000 * 60 * 60 * 24)
+
+        const outOfSync = (member.equipped_item_level || 0) > (member.last_sim_item_level || 0)
+
+        if (diffDays >= 3 || outOfSync) return 'red'
+        if (diffDays >= 1) return 'yellow'
+        return 'green'
+    }
+
+    const getStatusColor = (member: RosterMember) => {
+        const s = getHealthStatus(member)
+        if (s === 'red') return 'bg-red-500/10 border-red-500/20'
+        if (s === 'yellow') return 'bg-yellow-500/10 border-yellow-500/20'
+        return 'bg-emerald-500/10 border-emerald-500/20'
+    }
+
+    const getRowColor = (member: RosterMember) => {
+        const s = getHealthStatus(member)
+        if (s === 'red') return 'hover:bg-red-500/5'
+        if (s === 'yellow') return 'hover:bg-yellow-500/5'
+        return 'hover:bg-emerald-500/5'
+    }
 
     const sortedRoster = [...roster].sort((a, b) => {
         if (!rosterSort) return 0
@@ -155,6 +208,32 @@ export function AdminDashboard({
         }
     }
 
+    const handleThumbnailUpdate = async (rosterId: string) => {
+        const choice = prompt("Type 'URL' to paste a link/emoji, or 'UPLOAD' to select a file:")?.toUpperCase()
+
+        if (choice === 'URL') {
+            const url = prompt("Paste your image URL or Discord emoji link:")
+            if (url) {
+                const res = await updateRosterThumbnail(rosterId, url)
+                if (res.success) alert("Thumbnail updated!")
+                else alert("Error: " + res.message)
+            }
+        } else if (choice === 'UPLOAD') {
+            const input = document.createElement('input')
+            input.type = 'file'
+            input.accept = 'image/*'
+            input.onchange = async (e) => {
+                const file = (e.target as HTMLInputElement).files?.[0]
+                if (file) {
+                    const res = await updateRosterThumbnail(rosterId, file)
+                    if (res.success) alert("Thumbnail uploaded!")
+                    else alert("Error: " + res.message)
+                }
+            }
+            input.click()
+        }
+    }
+
     const formatDate = (dateStr: string | null) => {
         if (!dateStr) return '-'
         const d = new Date(dateStr)
@@ -167,8 +246,13 @@ export function AdminDashboard({
                 <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
                     <span className="text-emerald-400">●</span> Operational
                 </h2>
-                <div className="text-sm text-slate-400 mb-4">
-                    Logged in as: <span className="text-white">{currentUserDetail}</span>
+                <div className="text-sm text-slate-400 mb-6 flex justify-between items-center">
+                    <div>Logged in as: <span className="text-white">{currentUserDetail}</span></div>
+                    <Link href="/admin/loot">
+                        <Button variant="outline" size="sm" className="gap-2">
+                            <History className="w-4 h-4" /> Manage Loot History
+                        </Button>
+                    </Link>
                 </div>
             </div>
 
@@ -193,6 +277,7 @@ export function AdminDashboard({
                                 <th className="p-3"><SortBtn sortKey="realm" label="Realm" current={rosterSort} onSort={requestRosterSort} /></th>
                                 <th className="p-3"><SortBtn sortKey="class" label="Class" current={rosterSort} onSort={requestRosterSort} /></th>
                                 <th className="p-3"><SortBtn sortKey="spec" label="Spec" current={rosterSort} onSort={requestRosterSort} /></th>
+                                <th className="p-3"><SortBtn sortKey="equipped_item_level" label="iLvl" current={rosterSort} onSort={requestRosterSort} /></th>
                                 <th className="p-3"><SortBtn sortKey="last_dps" label="Avg DPS" current={rosterSort} onSort={requestRosterSort} /></th>
                                 <th className="p-3"><SortBtn sortKey="last_seen_in_game" label="Last Seen" current={rosterSort} onSort={requestRosterSort} /></th>
                                 <th className="p-3"><SortBtn sortKey="last_sim_time" label="Last Sim" current={rosterSort} onSort={requestRosterSort} /></th>
@@ -200,50 +285,76 @@ export function AdminDashboard({
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-800">
-                            {sortedRoster.map((r, index) => (
-                                <tr key={r.id} className="hover:bg-slate-800/50">
-                                    <td className="p-3 text-slate-500 text-xs font-mono">{roster.indexOf(r) + 1}</td>
-                                    <td className="p-3 font-medium text-slate-200">{r.name}</td>
-                                    <td className="p-3 text-slate-400">{r.realm}</td>
-                                    <td className="p-3 text-slate-400">{r.class}</td>
-                                    <td className="p-3 text-slate-400">{r.spec || '-'}</td>
-                                    <td className="p-3 font-mono text-emerald-400">
-                                        {r.last_dps ? r.last_dps.toLocaleString() : '-'}
-                                    </td>
-                                    <td className="p-3 text-slate-500 text-xs whitespace-nowrap">
-                                        {formatDate(r.last_seen_in_game)}
-                                    </td>
-                                    <td className="p-3 text-slate-500 text-xs whitespace-nowrap">
-                                        {r.last_sim_time ? (
-                                            r.last_sim_link ? (
-                                                <a href={r.last_sim_link} target="_blank" className="text-indigo-400 hover:underline flex items-center gap-1">
-                                                    {formatDate(r.last_sim_time)} <ExternalLink className="w-3 h-3" />
-                                                </a>
-                                            ) : (
-                                                <span>{formatDate(r.last_sim_time)}</span>
-                                            )
-                                        ) : 'Never'}
-                                    </td>
-                                    <td className="p-3 text-right flex justify-end gap-2">
-                                        <Button size="sm" variant="outline" onClick={async () => {
-                                            if (confirm("Refresh from Armory?")) await refreshRosterMember(r.id)
-                                        }}>
-                                            <RefreshCw className="w-4 h-4" />
-                                        </Button>
-                                        <Button size="sm" variant="secondary" onClick={async () => {
-                                            const res = await addToQueue(r.id)
-                                            if (!res?.success) alert(res?.message || "Error queuing sim")
-                                        }}>
-                                            Queue Sim
-                                        </Button>
-                                        <Button size="sm" variant="ghost" className="text-red-400 hover:text-red-300" onClick={async () => {
-                                            if (confirm("Remove " + r.name + " from database?")) await removeRosterMember(r.id)
-                                        }}>
-                                            <Trash className="w-4 h-4" />
-                                        </Button>
-                                    </td>
-                                </tr>
-                            ))}
+                            {sortedRoster.map((r, index) => {
+                                const status = getHealthStatus(r);
+                                const statusClass =
+                                    status === 'red' ? 'text-red-400' :
+                                        status === 'yellow' ? 'text-yellow-400' :
+                                            'text-emerald-400';
+
+                                return (
+                                    <tr key={r.id} className={`transition-colors ${getRowColor(r)}`}>
+                                        <td className="p-3 text-slate-500 text-xs font-mono">{roster.indexOf(r) + 1}</td>
+                                        <td className={`p-3 font-medium flex items-center gap-3 ${statusClass}`}>
+                                            <div className="relative group cursor-pointer" onClick={() => handleThumbnailUpdate(r.id)}>
+                                                {r.thumbnail_url ? (
+                                                    <img src={r.thumbnail_url} alt={r.name} className="w-8 h-8 rounded-full object-cover border border-slate-700 shadow-sm" />
+                                                ) : (
+                                                    <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-[10px] text-slate-500 font-bold uppercase">
+                                                        {r.name.substring(0, 2)}
+                                                    </div>
+                                                )}
+                                                <div className="absolute inset-0 bg-black/40 rounded-full opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                                                    <Camera className="w-3 h-3 text-white" />
+                                                </div>
+                                            </div>
+                                            <span>{r.name}</span>
+                                        </td>
+                                        <td className="p-3 text-slate-400">{r.realm}</td>
+                                        <td className="p-3 text-slate-400">{r.class}</td>
+                                        <td className="p-3 text-slate-400">{r.spec || '-'}</td>
+                                        <td className="p-3 text-slate-200 font-mono">{r.equipped_item_level || '-'}</td>
+                                        <td className={`p-3 font-mono text-right ${statusClass}`}>
+                                            {r.last_dps ? r.last_dps.toLocaleString() : '-'}
+                                        </td>
+                                        <td className="p-3 text-slate-500 text-xs whitespace-nowrap">
+                                            {formatDate(r.last_seen_in_game)}
+                                        </td>
+                                        <td className="p-3 text-slate-500 text-xs whitespace-nowrap">
+                                            {r.last_sim_time ? (
+                                                r.last_sim_link ? (
+                                                    <a href={r.last_sim_link} target="_blank" className="text-indigo-400 hover:underline flex items-center gap-1">
+                                                        {formatDate(r.last_sim_time)} <ExternalLink className="w-3 h-3" />
+                                                    </a>
+                                                ) : (
+                                                    <span>{formatDate(r.last_sim_time)}</span>
+                                                )
+                                            ) : 'Never'}
+                                            {r.last_sim_item_level && (
+                                                <div className="text-[10px] text-slate-600">Simmed at {r.last_sim_item_level}</div>
+                                            )}
+                                        </td>
+                                        <td className="p-3 text-right flex justify-end gap-2">
+                                            <Button size="sm" variant="outline" onClick={async () => {
+                                                if (confirm("Refresh from Armory?")) await refreshRosterMember(r.id)
+                                            }}>
+                                                <RefreshCw className="w-4 h-4" />
+                                            </Button>
+                                            <Button size="sm" variant="secondary" onClick={async () => {
+                                                const res = await addToQueue(r.id)
+                                                if (!res?.success) alert(res?.message || "Error queuing sim")
+                                            }}>
+                                                Queue Sim
+                                            </Button>
+                                            <Button size="sm" variant="ghost" className="text-red-400 hover:text-red-300" onClick={async () => {
+                                                if (confirm("Remove " + r.name + " from database?")) await removeRosterMember(r.id)
+                                            }}>
+                                                <Trash className="w-4 h-4" />
+                                            </Button>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
                         </tbody>
                     </table>
                 </div>

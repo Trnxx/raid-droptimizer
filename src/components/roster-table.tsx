@@ -21,6 +21,8 @@ type RosterMember = {
     last_seen_in_game: string | null
     last_sim_time: string | null
     last_sim_link: string | null
+    equipped_item_level: number | null
+    thumbnail_url: string | null
 }
 
 export function RosterTable({ roster }: { roster: RosterMember[] }) {
@@ -81,6 +83,9 @@ export function RosterTable({ roster }: { roster: RosterMember[] }) {
                         <TableHead className="text-slate-400 uppercase text-[10px] tracking-wider font-bold">
                             <SortButton sortKey="spec" label="Spec" />
                         </TableHead>
+                        <TableHead className="text-slate-400 uppercase text-[10px] tracking-wider font-bold">
+                            <SortButton sortKey="equipped_item_level" label="iLvl" />
+                        </TableHead>
                         <TableHead className="text-right text-slate-400 uppercase text-[10px] tracking-wider font-bold">
                             <SortButton sortKey="last_dps" label="Avg DPS" />
                         </TableHead>
@@ -99,10 +104,20 @@ export function RosterTable({ roster }: { roster: RosterMember[] }) {
                                 <TableCell className="text-slate-500 font-mono text-xs">
                                     {sortConfig?.key === 'idx' ? (sortConfig.direction === 'asc' ? idx + 1 : roster.length - idx) : roster.indexOf(r) + 1}
                                 </TableCell>
-                                <TableCell className="font-bold text-slate-200">{r.name}</TableCell>
+                                <TableCell className="font-bold text-slate-200 flex items-center gap-3">
+                                    {r.thumbnail_url ? (
+                                        <img src={r.thumbnail_url} alt={r.name} className="w-8 h-8 rounded-full object-cover border border-slate-800" />
+                                    ) : (
+                                        <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-[10px] text-slate-500 font-extrabold uppercase ring-1 ring-slate-800">
+                                            {r.name.substring(0, 2)}
+                                        </div>
+                                    )}
+                                    {r.name}
+                                </TableCell>
                                 <TableCell className="text-slate-400 text-sm whitespace-nowrap">{r.realm}</TableCell>
                                 <TableCell className="text-slate-400 text-sm">{r.class}</TableCell>
                                 <TableCell className="text-slate-400 text-sm">{r.spec || '-'}</TableCell>
+                                <TableCell className="text-slate-200 font-mono text-sm">{r.equipped_item_level || '-'}</TableCell>
                                 <TableCell className="text-right font-mono text-emerald-400">
                                     {r.last_dps ? r.last_dps.toLocaleString() : '-'}
                                 </TableCell>
