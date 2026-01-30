@@ -4,7 +4,7 @@ import { useState } from "react"
 import { RAID_DATA, getCurrentRaidWeek, getRecentWeeks } from "@/lib/raid-data"
 import { assignLoot, unassignLoot } from "../actions"
 import { Button } from "@/components/ui/button"
-import { Skull, Package, User, Plus, Trash2, ArrowRight } from "lucide-react"
+import { Skull, Package, User, Plus, Trash2, ArrowRight, X } from "lucide-react"
 
 type Member = {
     id: string
@@ -25,21 +25,16 @@ export function LootManager({ roster, existingHistory }: { roster: Member[], exi
     const weeks = getRecentWeeks(6)
     const [currentWeek, setCurrentWeek] = useState(weeks[0])
     const [selectedBoss, setSelectedBoss] = useState(RAID_DATA[0].bossName)
-    const [selectedRaiderId, setSelectedRaiderId] = useState<string>("")
+    const [assigningItemId, setAssigningItemId] = useState<number | null>(null)
 
     const historyForWeek = existingHistory.filter(h => h.raid_week === currentWeek)
     const currentBossData = RAID_DATA.find(b => b.bossName === selectedBoss)
 
-    const handleAssign = async (itemName: string, itemId: number) => {
-        if (!selectedRaiderId) {
-            alert("Please select a raider from the dropdown first!")
-            return
-        }
-
-        const res = await assignLoot(selectedRaiderId, selectedBoss, itemName, itemId, currentWeek)
+    const handleAssign = async (memberId: string, itemName: string, itemId: number) => {
+        const res = await assignLoot(memberId, selectedBoss, itemName, itemId, currentWeek)
         if (!res.success) alert(res.message)
         else {
-            // Optional: reset raid selection or keep it
+            setAssigningItemId(null)
         }
     }
 
@@ -94,40 +89,69 @@ export function LootManager({ roster, existingHistory }: { roster: Member[], exi
                                 <Package className="w-5 h-5 text-indigo-400" />
                                 {selectedBoss} Loot Table
                             </h2>
-                            <div className="flex items-center gap-2 w-full md:w-auto">
-                                <span className="text-xs font-bold text-slate-500 uppercase whitespace-nowrap">Assign To:</span>
-                                <select
-                                    className="bg-slate-900 border border-slate-700 text-slate-200 text-sm rounded-md px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-500 w-full md:w-48"
-                                    value={selectedRaiderId}
-                                    onChange={(e) => setSelectedRaiderId(e.target.value)}
-                                >
-                                    <option value="">-- Pick a Raider --</option>
-                                    {roster.map(r => (
-                                        <option key={r.id} value={r.id}>{r.name}</option>
-                                    ))}
-                                </select>
+                            <div className="text-[10px] text-slate-500 uppercase font-bold tracking-widest bg-slate-900/50 px-3 py-1 rounded-full border border-slate-800">
+                                Pick an item, then pick a raider
                             </div>
                         </div>
-                        <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div className="p-4 space-y-3">
                             {currentBossData?.items.map(item => (
-                                <div key={item.id} className="bg-slate-950/50 border border-slate-800 p-3 rounded-lg flex justify-between items-center group">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-8 h-8 bg-slate-900 rounded border border-slate-800 flex items-center justify-center shrink-0">
-                                            <Package className="w-4 h-4 text-slate-700" />
+                                <div key={item.id} className="space-y-3">
+                                    <div className={`bg-slate-950/50 border ${assigningItemId === item.id ? 'border-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.1)]' : 'border-slate-800'} p-3 rounded-lg flex justify-between items-center group transition-all`}>
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-8 h-8 bg-slate-900 rounded border border-slate-800 flex items-center justify-center shrink-0">
+                                                <Package className="w-4 h-4 text-slate-700" />
+                                            </div>
+                                            <div>
+                                                <div className="text-sm font-bold text-slate-200">{item.name}</div>
+                                                <div className="text-[10px] text-slate-500 uppercase">{item.slot}</div>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <div className="text-sm font-bold text-slate-200">{item.name}</div>
-                                            <div className="text-[10px] text-slate-500 uppercase">{item.slot}</div>
-                                        </div>
+                                        <Button
+                                            size="sm"
+                                            variant={assigningItemId === item.id ? 'default' : 'secondary'}
+                                            onClick={() => setAssigningItemId(assigningItemId === item.id ? null : item.id)}
+                                            className="h-8 gap-1"
+                                        >
+                                            {assigningItemId === item.id ? (
+                                                <><X className="w-3 h-3" /> Cancel</>
+                                            ) : (
+                                                <><Plus className="w-3 h-3" /> Assign</>
+                                            )}
+                                        </Button>
                                     </div>
-                                    <Button
-                                        size="sm"
-                                        variant="secondary"
-                                        onClick={() => handleAssign(item.name, item.id)}
-                                        className="opacity-0 group-hover:opacity-100 transition-opacity h-8 gap-1"
-                                    >
-                                        Assign <Plus className="w-3 h-3" />
-                                    </Button>
+
+                                    {/* Raider Selection Grid */}
+                                    {assigningItemId === item.id && (
+                                        <div className="bg-slate-900/40 border border-indigo-500/20 p-4 rounded-lg animate-in fade-in slide-in-from-top-2 duration-300">
+                                            <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                                <div className="h-[1px] bg-slate-800 flex-1"></div>
+                                                Assign To
+                                                <div className="h-[1px] bg-slate-800 flex-1"></div>
+                                            </div>
+                                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                                                {roster.map(r => (
+                                                    <button
+                                                        key={r.id}
+                                                        onClick={() => handleAssign(r.id, item.name, item.id)}
+                                                        className="flex flex-col items-center gap-2 p-2 rounded-lg bg-slate-950/50 border border-slate-800 hover:border-indigo-500 hover:bg-slate-900 transition-all group"
+                                                    >
+                                                        <div className="w-10 h-10 rounded-full bg-slate-800 border border-slate-700 overflow-hidden shrink-0 group-hover:scale-110 group-hover:border-indigo-500 transition-all">
+                                                            {r.thumbnail_url ? (
+                                                                <img src={r.thumbnail_url} alt={r.name} className="w-full h-full object-cover" />
+                                                            ) : (
+                                                                <div className="w-full h-full flex items-center justify-center text-[10px] text-slate-600 font-bold uppercase bg-slate-900">
+                                                                    {r.name.substring(0, 2)}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        <span className="text-[10px] font-bold text-slate-400 group-hover:text-indigo-300 truncate w-full text-center">
+                                                            {r.name}
+                                                        </span>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             ))}
                         </div>

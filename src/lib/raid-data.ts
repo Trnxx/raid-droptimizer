@@ -73,6 +73,16 @@ export const RAID_DATA: BossLoot[] = [
 ];
 
 /**
+ * Formats a date as YYYY-MM-DD in local time to avoid UTC shifts
+ */
+function formatDate(date: Date) {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+}
+
+/**
  * Calculates the current raid week string (e.g., "Week of 2026-01-27")
  * based on the most recent Tuesday.
  */
@@ -86,7 +96,7 @@ export function getCurrentRaidWeek() {
     tuesday.setDate(now.getDate() + diff);
     tuesday.setHours(0, 0, 0, 0);
 
-    return `Week of ${tuesday.toISOString().split('T')[0]}`;
+    return `Week of ${formatDate(tuesday)}`;
 }
 
 /**
@@ -105,7 +115,7 @@ export function getRecentWeeks(count = 4) {
     for (let i = 0; i < count; i++) {
         const d = new Date(tuesday);
         d.setDate(tuesday.getDate() - (i * 7));
-        weeks.push(`Week of ${d.toISOString().split('T')[0]}`);
+        weeks.push(`Week of ${formatDate(d)}`);
     }
 
     return weeks;
