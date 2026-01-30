@@ -18,7 +18,6 @@ type Assignment = {
     roster_id: string
     boss_name: string
     item_name: string
-    item_name: string
     raid_week: string
     difficulty: string
     roster: { name: string }
