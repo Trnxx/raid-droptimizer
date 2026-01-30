@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { addRosterMember, addToQueue, markJobComplete, markJobFailed, removeRosterMember, refreshRosterMember, deleteJob, clearQueue, updateRosterThumbnail } from "./actions"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Loader2, Play, Plus, Trash, Check, X, RefreshCw, ChevronDown, ChevronRight, ExternalLink, ArrowUpDown, Camera, History } from "lucide-react"
+import { Loader2, Play, Plus, Trash, Check, X, RefreshCw, ChevronDown, ChevronRight, ExternalLink, ArrowUpDown, Camera, History, Home } from "lucide-react"
 import Link from "next/link"
 
 // Types
@@ -43,6 +43,7 @@ export function AdminDashboard({
 }) {
     const [loading, setLoading] = useState(false)
     const [showQueue, setShowQueue] = useState(true)
+    const [excludedRaiderIds, setExcludedRaiderIds] = useState<Set<string>>(new Set())
 
     // Form State
     const [newName, setNewName] = useState("")
@@ -83,7 +84,11 @@ export function AdminDashboard({
 
             // Check if already in queue
             const inQueue = queue.some(q => q.roster.id === m.id && (q.status === 'pending' || q.status === 'running'))
-            return !inQueue
+
+            // Check if manually excluded in this session
+            const isExcluded = excludedRaiderIds.has(m.id)
+
+            return !inQueue && !isExcluded
         })
 
         if (redMembers.length > 0) {
@@ -94,7 +99,7 @@ export function AdminDashboard({
                 })
             })
         }
-    }, [roster, queue])
+    }, [roster, queue, excludedRaiderIds])
 
     const getHealthStatus = (member: RosterMember) => {
         if (!member.last_sim_time) return 'red'
@@ -203,6 +208,16 @@ export function AdminDashboard({
 
     const handleClearQueue = async () => {
         if (confirm("Are you sure you want to clear the entire queue (except running jobs)?")) {
+            // Before clearing, add all raiders currently in queue to the exclusion list
+            // so they don't get immediately re-added by the health check
+            const currentRaiderIds = queue.map(q => q.roster?.id).filter(Boolean) as string[]
+            if (currentRaiderIds.length > 0) {
+                setExcludedRaiderIds(prev => {
+                    const next = new Set(prev)
+                    currentRaiderIds.forEach(id => next.add(id))
+                    return next
+                })
+            }
             const res = await clearQueue()
             if (!res?.success) alert(res?.message || "Failed to clear queue")
         }
@@ -243,9 +258,16 @@ export function AdminDashboard({
     return (
         <div className="space-y-8">
             <div className="bg-slate-900 border border-slate-800 p-6 rounded-lg">
-                <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-                    <span className="text-emerald-400">●</span> Operational
-                </h2>
+                <div className="flex justify-between items-center mb-4">
+                    <h2 className="text-xl font-bold flex items-center gap-2">
+                        <span className="text-emerald-400">●</span> Operational
+                    </h2>
+                    <Link href="/">
+                        <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white gap-2">
+                            <Home className="w-4 h-4" /> Back to Home
+                        </Button>
+                    </Link>
+                </div>
                 <div className="text-sm text-slate-400 mb-6 flex justify-between items-center">
                     <div>Logged in as: <span className="text-white">{currentUserDetail}</span></div>
                     <Link href="/admin/loot">
@@ -418,7 +440,13 @@ export function AdminDashboard({
                                                     <Check className="w-4 h-4" />
                                                 </Button>
                                                 <Button size="sm" variant="ghost" className="text-red-400" onClick={async () => {
-                                                    await deleteJob(q.id)
+                                                    if (confirm("Remove from queue?")) {
+                                                        // Add to exclusion list
+                                                        if (q.roster?.id) {
+                                                            setExcludedRaiderIds(prev => new Set(prev).add(q.roster.id))
+                                                        }
+                                                        await deleteJob(q.id)
+                                                    }
                                                 }}>
                                                     <X className="w-4 h-4" />
                                                 </Button>

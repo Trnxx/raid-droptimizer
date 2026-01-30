@@ -25,23 +25,22 @@ export function LootManager({ roster, existingHistory }: { roster: Member[], exi
     const weeks = getRecentWeeks(6)
     const [currentWeek, setCurrentWeek] = useState(weeks[0])
     const [selectedBoss, setSelectedBoss] = useState(RAID_DATA[0].bossName)
+    const [selectedRaiderId, setSelectedRaiderId] = useState<string>("")
 
     const historyForWeek = existingHistory.filter(h => h.raid_week === currentWeek)
     const currentBossData = RAID_DATA.find(b => b.bossName === selectedBoss)
 
     const handleAssign = async (itemName: string, itemId: number) => {
-        const memberId = prompt(`Who received ${itemName}?\nEnter Character Name component (case sensitive for now) or pick from list soon...`)
-        if (!memberId) return
-
-        // Find member by name
-        const member = roster.find(m => m.name.toLowerCase() === memberId.toLowerCase())
-        if (!member) {
-            alert("Character not found in roster!")
+        if (!selectedRaiderId) {
+            alert("Please select a raider from the dropdown first!")
             return
         }
 
-        const res = await assignLoot(member.id, selectedBoss, itemName, itemId, currentWeek)
+        const res = await assignLoot(selectedRaiderId, selectedBoss, itemName, itemId, currentWeek)
         if (!res.success) alert(res.message)
+        else {
+            // Optional: reset raid selection or keep it
+        }
     }
 
     const handleUnassign = async (id: string) => {
@@ -59,8 +58,8 @@ export function LootManager({ roster, existingHistory }: { roster: Member[], exi
                         key={w}
                         onClick={() => setCurrentWeek(w)}
                         className={`px-4 py-2 rounded-t-lg text-sm font-medium transition-colors whitespace-nowrap ${currentWeek === w
-                                ? 'bg-indigo-600 text-white'
-                                : 'text-slate-500 hover:text-slate-300 hover:bg-slate-900'
+                            ? 'bg-indigo-600 text-white'
+                            : 'text-slate-500 hover:text-slate-300 hover:bg-slate-900'
                             }`}
                     >
                         {w.replace('Week of ', '')}
@@ -77,8 +76,8 @@ export function LootManager({ roster, existingHistory }: { roster: Member[], exi
                             key={b.bossName}
                             onClick={() => setSelectedBoss(b.bossName)}
                             className={`w-full text-left p-3 rounded-lg text-sm font-medium flex items-center gap-3 transition-all ${selectedBoss === b.bossName
-                                    ? 'bg-indigo-600/20 border border-indigo-500/50 text-indigo-300'
-                                    : 'bg-slate-900 border border-slate-800 text-slate-400 hover:border-slate-700'
+                                ? 'bg-indigo-600/20 border border-indigo-500/50 text-indigo-300'
+                                : 'bg-slate-900 border border-slate-800 text-slate-400 hover:border-slate-700'
                                 }`}
                         >
                             <Skull className={`w-4 h-4 ${selectedBoss === b.bossName ? 'text-indigo-400' : 'text-slate-600'}`} />
@@ -90,18 +89,36 @@ export function LootManager({ roster, existingHistory }: { roster: Member[], exi
                 {/* Loot Assignment Area */}
                 <div className="lg:col-span-3 space-y-6">
                     <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
-                        <div className="px-6 py-4 bg-slate-950 border-b border-slate-800 flex justify-between items-center">
+                        <div className="px-6 py-4 bg-slate-950 border-b border-slate-800 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                             <h2 className="font-bold text-lg flex items-center gap-2">
                                 <Package className="w-5 h-5 text-indigo-400" />
                                 {selectedBoss} Loot Table
                             </h2>
+                            <div className="flex items-center gap-2 w-full md:w-auto">
+                                <span className="text-xs font-bold text-slate-500 uppercase whitespace-nowrap">Assign To:</span>
+                                <select
+                                    className="bg-slate-900 border border-slate-700 text-slate-200 text-sm rounded-md px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-500 w-full md:w-48"
+                                    value={selectedRaiderId}
+                                    onChange={(e) => setSelectedRaiderId(e.target.value)}
+                                >
+                                    <option value="">-- Pick a Raider --</option>
+                                    {roster.map(r => (
+                                        <option key={r.id} value={r.id}>{r.name}</option>
+                                    ))}
+                                </select>
+                            </div>
                         </div>
                         <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-3">
                             {currentBossData?.items.map(item => (
                                 <div key={item.id} className="bg-slate-950/50 border border-slate-800 p-3 rounded-lg flex justify-between items-center group">
-                                    <div>
-                                        <div className="text-sm font-bold text-slate-200">{item.name}</div>
-                                        <div className="text-[10px] text-slate-500 uppercase">{item.slot}</div>
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-8 h-8 bg-slate-900 rounded border border-slate-800 flex items-center justify-center shrink-0">
+                                            <Package className="w-4 h-4 text-slate-700" />
+                                        </div>
+                                        <div>
+                                            <div className="text-sm font-bold text-slate-200">{item.name}</div>
+                                            <div className="text-[10px] text-slate-500 uppercase">{item.slot}</div>
+                                        </div>
                                     </div>
                                     <Button
                                         size="sm"
